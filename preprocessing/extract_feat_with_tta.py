@@ -1,32 +1,32 @@
 # -*- coding: utf-8 -*-
 
-import os, sys, inspect
+import argparse
+import inspect
+import os
+import os.path as osp
+import sys
+import random
+from glob import glob
+import queue
+import threading
+from concurrent.futures import ThreadPoolExecutor
+
 current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parent_dir = os.path.dirname(current_dir)
 sys.path.insert(0, parent_dir)
 
-
-import os.path as osp
 import torch
 import pandas as pd
-from glob import glob
 import torch.utils.data as data_utils
-
 from tqdm import tqdm
-
 import pickle
 import numpy as np
 from multiprocessing.pool import Pool
 import cv2
 from albumentations.pytorch import ToTensorV2
 import albumentations as alb
-import random
 
-import queue
-import threading
 from models.effnet import EffNet
-from concurrent.futures import ThreadPoolExecutor
-import argparse
 
 tr_trans = alb.Compose([
     alb.Resize(512, 512),
@@ -98,7 +98,8 @@ def merge_feat_to_bag(feat_dir):
             with open(feat_fp, 'rb') as infile:
                 try:
                     feat_data = pickle.load(infile)
-                except:
+                except Exception as e:
+                    print(e)
                     continue
             feats.append(feat_data)
             f_names.append(osp.basename(feat_fp).rsplit('.', 1)[0])
@@ -161,7 +162,6 @@ def pred_and_save_with_dataloader(model, img_fp_list, local_rank):
             executor.submit(save_feat_in_thread, batch_pid, batch_img_bname, batch_val_feat, tr_feat, batch_tr_ret)
 
 
-
 img_queue = queue.Queue(maxsize=128)
 img_fp_queue = queue.Queue()
 
@@ -173,7 +173,8 @@ def read_worker():
             break
         try:
             img = cv2.imread(imgfp)[:, :, ::-1]
-        except:
+        except Exception as e:
+            print(e)
             img = np.zeros((512, 512, 3), dtype='uint8')
         aug_img_list = []
         for i in range(TTA_TIMES):
@@ -187,7 +188,8 @@ def save_pkl_file(feat_save_name, save_dict):
         try:
             with open(feat_save_name, 'rb') as infile:
                 old_save_dict = pickle.load(infile)
-        except:
+        except Exception as e:
+            print(e)
             old_save_dict = {}
     else:
         old_save_dict = {}
@@ -196,7 +198,8 @@ def save_pkl_file(feat_save_name, save_dict):
     if 'tr' in old_save_dict.keys():
         try:
             save_dict['tr'] = np.concatenate([tr_aug_feat, old_save_dict['tr']])
-        except:
+        except Exception as e:
+            print(e)
             save_dict['tr'] = tr_aug_feat
     with open(feat_save_name, 'wb') as outfile:
         pickle.dump(save_dict, outfile)
@@ -268,7 +271,7 @@ def main():
     save each patch feature into pid dir
     then merge them into a single file
     """
-    print(f'Load dataset...')
+    print('Load dataset...')
 
     model = EffNet()
 
@@ -280,7 +283,6 @@ def main():
         img_fp_list.extend(img_files)
 
     print(f'Len of img {len(img_fp_list)}')
-
 
     img_fp_list = sorted(img_fp_list)
 
@@ -306,7 +308,6 @@ def main():
     with Pool(num_processes) as p:
         for _ in tqdm(p.starmap(pred_and_save, tasks), total=len(tasks)):
             pass
-
 
 
 if __name__ == '__main__':

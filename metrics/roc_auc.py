@@ -1,5 +1,6 @@
 from .epoch_metric import EpochMetric
 
+
 def roc_auc_compute_fn(y_preds, y_targets):
     try:
         from sklearn.metrics import roc_auc_score

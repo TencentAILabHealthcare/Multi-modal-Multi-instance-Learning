@@ -1,8 +1,8 @@
 from torch import nn
 from torch.autograd import Function
 import torch.nn.functional as F
-
 import torch
+
 
 def _make_ix_like(input, dim=0):
     d = input.size(dim)
@@ -83,7 +83,6 @@ class Sparsemax(nn.Module):
 
 
 class Entmax15Function(Function):
-
 
     @staticmethod
     def forward(ctx, input, dim=-1):
@@ -171,4 +170,3 @@ class Entmax15(nn.Module):
 
     def forward(self, input):
         return entmax15(input, self.dim)
-

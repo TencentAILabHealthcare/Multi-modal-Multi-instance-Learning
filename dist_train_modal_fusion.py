@@ -1,34 +1,27 @@
 # System libs
 import datetime
-
 import os
 import os.path as osp
-
 import random
-import pickle
 import argparse
+from typing import Tuple
 
+import pickle
 # Numerical libs
 import torch
 import torch.nn as nn
-
 import torch.utils.data as data_utils
 import pandas as pd
 import numpy as np
+import torch.distributed as dist
+import matplotlib
 
 # Our libs
 from configs.defaults import _C as train_config
-from utils import setup_logger
-
-import torch.distributed as dist
 from models.mil_net import MILFusion
 from dataloader.feat_bag_dataset import ModalFusionDataset
-
 from metrics import ROC_AUC
-
-
-import matplotlib
-from typing import Tuple
+from utils import setup_logger
 
 old_print = print
 from rich import print
@@ -36,23 +29,24 @@ from rich import print
 
 matplotlib.use("Agg")
 
-def print_in_main_thread(msg: str,):
+
+def print_in_main_thread(msg: str, ):
     if local_rank == 0:
         print(msg)
+
 
 def log_in_main_thread(msg: str):
     if local_rank == 0:
         logger.info(msg)
 
 
-def evaluate(model: nn.Module, val_loader, epoch, local_rank, final_test=False, dump_dir=None) -> Tuple[float, float, float]:
+def evaluate(model: nn.Module, val_loader, local_rank) -> Tuple[float, float, float]:
     """
     distributed method for model inference, meter will automatically deal with the sync of multiple gpus
     Parameters
     ----------
     model
     val_loader
-    epoch
     local_rank
 
     Returns
@@ -85,7 +79,6 @@ def evaluate(model: nn.Module, val_loader, epoch, local_rank, final_test=False, 
     print(all_pred)
 
 
-
 def main(cfg, local_rank):
     """
     build
@@ -95,7 +88,7 @@ def main(cfg, local_rank):
     :return:
     """
     if local_rank == 0:
-        logger.info(f'Build model')
+        logger.info('Build model')
 
     with open(cfg.dataset.tab_data_path, 'rb') as infile:
         tab_data = pickle.load(infile)
@@ -103,7 +96,6 @@ def main(cfg, local_rank):
     cat_idxs = tab_data['cat_idxs']
 
     tab_data_df = pd.read_csv(cfg.dataset.tab_data_path.rsplit('.', 1)[0] + '.csv')
-
 
     df_path = cfg.dataset.df_path
     if local_rank == 0:
@@ -114,7 +106,7 @@ def main(cfg, local_rank):
     test_data_df = tab_data_df[tab_data_df.split == 'test']
 
     if local_rank == 0:
-        logger.info(f'Build dataset')
+        logger.info('Build dataset')
 
     """build dataset"""
 
@@ -159,50 +151,50 @@ def main(cfg, local_rank):
         k_agg = 10
 
     if cfg.model.arch == 'm3d':
-        logger.info(f'Adapt m3d')
+        logger.info('Adapt m3d')
         from models.mil_net import M3D
         model = M3D(img_feat_input_dim=1280,
-                          tab_feat_input_dim=32,
-                          img_feat_rep_layers=4,
-                          num_modal=cfg.model.num_modal,
-                          fusion=fusion,
-                          use_tabnet=cfg.model.use_tabnet,
-                          use_k_agg=use_k_agg,
-                          k_agg=k_agg,
-                          tab_indim=test_dataset.tab_data_shape,
-                          cat_dims=cat_dims,
-                          cat_idxs=cat_idxs,
-                          local_rank=local_rank)
+                    tab_feat_input_dim=32,
+                    img_feat_rep_layers=4,
+                    num_modal=cfg.model.num_modal,
+                    fusion=fusion,
+                    use_tabnet=cfg.model.use_tabnet,
+                    use_k_agg=use_k_agg,
+                    k_agg=k_agg,
+                    tab_indim=test_dataset.tab_data_shape,
+                    cat_dims=cat_dims,
+                    cat_idxs=cat_idxs,
+                    local_rank=local_rank)
     elif cfg.model.arch == 'attention_refine':
-        logger.info(f'attention_refine')
+        logger.info('attention_refine')
         from models.mil_net import MILFusionAppend
         model = MILFusionAppend(img_feat_input_dim=1280,
-                          tab_feat_input_dim=32,
-                          img_feat_rep_layers=4,
-                          num_modal=cfg.model.num_modal,
-                          fusion=fusion,
-                          use_tabnet=cfg.model.use_tabnet,
-                          use_k_agg=use_k_agg,
-                          k_agg=k_agg,
-                          tab_indim=test_dataset.tab_data_shape,
-                          cat_dims=cat_dims,
-                          cat_idxs=cat_idxs,
-                          local_rank=local_rank)
+                                tab_feat_input_dim=32,
+                                img_feat_rep_layers=4,
+                                num_modal=cfg.model.num_modal,
+                                fusion=fusion,
+                                use_tabnet=cfg.model.use_tabnet,
+                                use_k_agg=use_k_agg,
+                                k_agg=k_agg,
+                                tab_indim=test_dataset.tab_data_shape,
+                                cat_dims=cat_dims,
+                                cat_idxs=cat_idxs,
+                                local_rank=local_rank)
     elif cfg.model.arch == 'attention_add':
-        logger.info(f'attention_add')
+        logger.info('attention_add')
         from models.mil_net import MILFusionAdd
         model = MILFusionAdd(img_feat_input_dim=1280,
-                          tab_feat_input_dim=32,
-                          img_feat_rep_layers=4,
-                          num_modal=cfg.model.num_modal,
-                          fusion=fusion,
-                          use_tabnet=cfg.model.use_tabnet,
-                          use_k_agg=use_k_agg,
-                          k_agg=k_agg,
-                          tab_indim=test_dataset.tab_data_shape,
-                          cat_dims=cat_dims,
-                          cat_idxs=cat_idxs,
-                          local_rank=local_rank)
+                             tab_feat_input_dim=32,
+                             img_feat_rep_layers=4,
+                             num_modal=cfg.model.num_modal,
+                             fusion=fusion,
+                             use_tabnet=cfg.model.use_tabnet,
+                             use_k_agg=use_k_agg,
+                             k_agg=k_agg,
+                             tab_indim=test_dataset.tab_data_shape,
+                             cat_dims=cat_dims,
+                             cat_idxs=cat_idxs,
+                             local_rank=local_rank)
     else:
         model = MILFusion(img_feat_input_dim=1280,
                           tab_feat_input_dim=32,
@@ -217,15 +209,13 @@ def main(cfg, local_rank):
                           cat_idxs=cat_idxs,
                           local_rank=local_rank)
 
-    
     model = model.cuda(local_rank)
     model = model.to(local_rank)
 
     model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[local_rank])
 
-
     if local_rank == 0:
-        logger.info(f'Start training')
+        logger.info('Start training')
 
     """
     load best ckpt
@@ -243,7 +233,8 @@ def main(cfg, local_rank):
     model.eval()
 
     evaluate(model, test_loader, cfg.train.num_epoch, local_rank, final_test=True,
-                                             dump_dir=cfg.save_dir)
+             dump_dir=cfg.save_dir)
+
 
 def seed_everything(seed_value):
     random.seed(seed_value)
@@ -256,6 +247,7 @@ def seed_everything(seed_value):
         torch.cuda.manual_seed_all(seed_value)
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
+
 
 if __name__ == '__main__':
 
@@ -287,19 +279,17 @@ if __name__ == '__main__':
     # set dist
     torch.cuda.set_device(args.local_rank)
     dist.init_process_group(backend='nccl', rank=local_rank)
-    
+
     print(f'local rank: {args.local_rank}')
 
     time_now = datetime.datetime.now()
     cfg.save_dir = osp.join(cfg.save_dir,
                             f'{time_now.year}_{time_now.month}_{time_now.day}_{time_now.hour}_{time_now.minute}')
 
-
     if not os.path.isdir(cfg.save_dir):
         os.makedirs(cfg.save_dir, exist_ok=True)
     logger = setup_logger(distributed_rank=args.local_rank, filename=osp.join(cfg.save_dir, 'train_log.txt'))  # TODO
     log_in_main_thread(f'Save result to : {cfg.save_dir}')
-
 
     if args.local_rank == 0:
         logger.info("Loaded configuration file {}".format(args.cfg))
@@ -314,5 +304,3 @@ if __name__ == '__main__':
     torch.manual_seed(cfg.train.seed)
 
     main(cfg, args.local_rank)
-
-

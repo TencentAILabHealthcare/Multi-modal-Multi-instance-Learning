@@ -11,6 +11,7 @@ efn_pretrained = {
     7: '../pretrained/efficientnet-b7_weights_tf_dim_ordering_tf_kernels_autoaugment_notop.h5'
 }
 
+
 class EffNet(nn.Module):
     def __init__(self, efname='efficientnet-b0'):
         super(EffNet, self).__init__()
