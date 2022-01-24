@@ -65,5 +65,3 @@ class AverageMeter(object):
 
     def average(self):
         return self.avg
-
-

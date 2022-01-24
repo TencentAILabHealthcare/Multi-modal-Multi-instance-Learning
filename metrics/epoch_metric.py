@@ -4,6 +4,7 @@ import torch.distributed as dist
 import torch
 import pickle
 
+
 def all_gather(data):
     """
     Run all_gather on arbitrary picklable data (not necessarily tensors)
@@ -18,7 +19,6 @@ def all_gather(data):
 
     rank = dist.get_rank()
     device = torch.device('cuda', rank)
-
 
     # serialized to a Tensor
     buffer = pickle.dumps(data)

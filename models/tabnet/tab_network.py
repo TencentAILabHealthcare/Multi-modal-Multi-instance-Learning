@@ -4,14 +4,15 @@ import numpy as np
 
 from models.tabnet import sparsemax
 
+
 def initialize_non_glu(module, input_dim, output_dim):
-    gain_value = np.sqrt((input_dim+output_dim)/np.sqrt(4*input_dim))
+    gain_value = np.sqrt((input_dim + output_dim) / np.sqrt(4 * input_dim))
     torch.nn.init.xavier_normal_(module.weight, gain=gain_value)
     return
 
 
 def initialize_glu(module, input_dim, output_dim):
-    gain_value = np.sqrt((input_dim+output_dim)/np.sqrt(input_dim))
+    gain_value = np.sqrt((input_dim + output_dim) / np.sqrt(input_dim))
     torch.nn.init.xavier_normal_(module.weight, gain=gain_value)
     # torch.nn.init.zeros_(module.bias)
     return
@@ -92,15 +93,15 @@ class TabNetNoEmbeddings(torch.nn.Module):
             for i in range(self.n_shared):
                 if i == 0:
                     shared_feat_transform.append(Linear(self.input_dim,
-                                                        2*(n_d + n_a),
+                                                        2 * (n_d + n_a),
                                                         bias=False))
                 else:
-                    shared_feat_transform.append(Linear(n_d + n_a, 2*(n_d + n_a), bias=False))
+                    shared_feat_transform.append(Linear(n_d + n_a, 2 * (n_d + n_a), bias=False))
 
         else:
             shared_feat_transform = None
 
-        self.initial_splitter = FeatTransformer(self.input_dim, n_d+n_a, shared_feat_transform,
+        self.initial_splitter = FeatTransformer(self.input_dim, n_d + n_a, shared_feat_transform,
                                                 n_glu_independent=self.n_independent,
                                                 virtual_batch_size=self.virtual_batch_size,
                                                 momentum=momentum)
@@ -109,7 +110,7 @@ class TabNetNoEmbeddings(torch.nn.Module):
         self.att_transformers = torch.nn.ModuleList()
 
         for step in range(n_steps):
-            transformer = FeatTransformer(self.input_dim, n_d+n_a, shared_feat_transform,
+            transformer = FeatTransformer(self.input_dim, n_d + n_a, shared_feat_transform,
                                           n_glu_independent=self.n_independent,
                                           virtual_batch_size=self.virtual_batch_size,
                                           momentum=momentum)
@@ -140,7 +141,7 @@ class TabNetNoEmbeddings(torch.nn.Module):
 
         for step in range(self.n_steps):
             M = self.att_transformers[step](prior, att)
-            M_loss += torch.mean(torch.sum(torch.mul(M, torch.log(M+self.epsilon)),
+            M_loss += torch.mean(torch.sum(torch.mul(M, torch.log(M + self.epsilon)),
                                            dim=1))
             # update prior
             prior = torch.mul(self.gamma - M, prior)
@@ -404,7 +405,7 @@ class GLU_Block(torch.nn.Module):
 
         for glu_id in layers_left:
             x = torch.add(x, self.glu_layers[glu_id](x))
-            x = x*scale
+            x = x * scale
         return x
 
 
@@ -417,10 +418,10 @@ class GLU_Layer(torch.nn.Module):
         if fc:
             self.fc = fc
         else:
-            self.fc = Linear(input_dim, 2*output_dim, bias=False)
-        initialize_glu(self.fc, input_dim, 2*output_dim)
+            self.fc = Linear(input_dim, 2 * output_dim, bias=False)
+        initialize_glu(self.fc, input_dim, 2 * output_dim)
 
-        self.bn = GBN(2*output_dim, virtual_batch_size=virtual_batch_size,
+        self.bn = GBN(2 * output_dim, virtual_batch_size=virtual_batch_size,
                       momentum=momentum)
 
     def forward(self, x):
@@ -459,7 +460,7 @@ class EmbeddingGenerator(torch.nn.Module):
 
         self.skip_embedding = False
         if isinstance(cat_emb_dim, int):
-            self.cat_emb_dims = [cat_emb_dim]*len(cat_idxs)
+            self.cat_emb_dims = [cat_emb_dim] * len(cat_idxs)
         else:
             self.cat_emb_dims = cat_emb_dim
 

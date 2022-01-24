@@ -1,12 +1,13 @@
+from typing import Sequence
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
-from typing import Sequence
-from models.tabnet.tab_network import TabNet
-
-from .fusion import BilinearFusion
 from copy import deepcopy
+
+from models.tabnet.tab_network import TabNet
+from .fusion import BilinearFusion
+
 
 class Swish(nn.Module):
     def __init__(self):
@@ -324,6 +325,7 @@ class MMTMBi(nn.Module):
 
         return tab_feat * tab_out, img_feat * img_out, img_out
 
+
 class MMTMTri(nn.Module):
     """
     tri-modal fusion
@@ -342,7 +344,6 @@ class MMTMTri(nn.Module):
         dim = dim_img * 3
         dim_out = int(2 * dim / ratio)
         self.fc_squeeze = nn.Linear(dim, dim_out)
-
 
         self.fc_img_scale1 = nn.Linear(dim_out, dim_img)
         self.fc_img_scale2 = nn.Linear(dim_out, dim_img)
@@ -369,7 +370,6 @@ class MMTMTri(nn.Module):
         excitation = self.fc_squeeze(squeeze)
         excitation = self.relu(excitation)
 
-
         img_out_scale1 = self.fc_img_scale1(excitation)
         img_out_scale2 = self.fc_img_scale2(excitation)
         img_out_scale3 = self.fc_img_scale3(excitation)
@@ -378,7 +378,9 @@ class MMTMTri(nn.Module):
         img_out_scale2 = self.sigmoid(img_out_scale2)
         img_out_scale3 = self.sigmoid(img_out_scale3)
 
-        return img_feat_scale1 * img_out_scale1, img_out_scale1, img_feat_scale2 * img_out_scale2, img_out_scale2,  img_feat_scale2 * img_out_scale3, img_out_scale3
+        return img_feat_scale1 * img_out_scale1, img_out_scale1, img_feat_scale2 * img_out_scale2, img_out_scale2, \
+            img_feat_scale2 * img_out_scale3, img_out_scale3
+
 
 class MMTMQuad(nn.Module):
     """
@@ -436,7 +438,8 @@ class MMTMQuad(nn.Module):
         img_out_scale2 = self.sigmoid(img_out_scale2)
         img_out_scale3 = self.sigmoid(img_out_scale3)
 
-        return tab_feat * tab_out, img_feat_scale1 * img_out_scale1, img_out_scale1, img_feat_scale2 * img_out_scale2, img_out_scale2,  img_feat_scale2 * img_out_scale3, img_out_scale3
+        return tab_feat * tab_out, img_feat_scale1 * img_out_scale1, img_out_scale1, img_feat_scale2 * img_out_scale2, \
+            img_out_scale2, img_feat_scale2 * img_out_scale3, img_out_scale3
 
 
 class InstanceAttentionGate(nn.Module):
@@ -539,7 +542,6 @@ class MILFusion(nn.Module):
                     )
                 )
 
-
         """modal fusion"""
         self.wsi_select_gate = None
         # define different fusion methods and related output feature dimension and fusion module
@@ -592,7 +594,7 @@ class MILFusion(nn.Module):
         else:
             self.instance_gate1 = InstanceAttentionGate(img_feat_input_dim)
 
-        if (self.num_modal == 4 or self.num_modal == 3)and self.fusion_method == 'mmtm':
+        if (self.num_modal == 4 or self.num_modal == 3) and self.fusion_method == 'mmtm':
             self.instance_gate2 = InstanceAttentionGate(img_feat_input_dim)
             self.instance_gate3 = InstanceAttentionGate(img_feat_input_dim)
         else:
@@ -648,7 +650,6 @@ class MILFusion(nn.Module):
         data_sorted = torch.transpose(data_sorted, 1, 0)
         data_sorted = data_sorted.unsqueeze(1)
 
-
         agg_result = nn.functional.adaptive_max_pool1d(data_sorted, self.k_agg)
 
         agg_result = agg_result.squeeze(1)
@@ -694,10 +695,11 @@ class MILFusion(nn.Module):
             tab_feat = self.table_feature_ft(tab_feat)
             # fusion first
             feat_list = []
-            for scale, ft_fc in zip(range(3), [self.feature_fine_tuning, self.feature_fine_tuning2, self.feature_fine_tuning3]):
+            for scale, ft_fc in zip(range(3),
+                                    [self.feature_fine_tuning, self.feature_fine_tuning2, self.feature_fine_tuning3]):
                 if ft_fc is None:
                     break
-                wsi_feat = data[f'wsi_feat_scale{scale+1}'].cuda(self.local_rank)
+                wsi_feat = data[f'wsi_feat_scale{scale + 1}'].cuda(self.local_rank)
                 wsi_feat = wsi_feat.squeeze(0)
                 wsi_feat = ft_fc(wsi_feat)
 
@@ -718,7 +720,6 @@ class MILFusion(nn.Module):
                 fusion_feat = self.mmtm(tab_feat, global_wsi_feat)
 
             out = self.classifier(fusion_feat)
-
 
         elif self.num_modal == 2:
             wsi_feat_scale1 = self.feature_fine_tuning(wsi_feat_scale1)
@@ -791,8 +792,8 @@ class MILFusion(nn.Module):
                     wsi_feat_scale_gloabl_list.append(torch.mean(feat, dim=0, keepdim=True))
 
             """mmtm"""
-            wsi_feat1_gloabl, wsi_feat_scale1_gate, wsi_feat2_gloabl, wsi_feat_scale2_gate, wsi_feat3_gloabl, wsi_feat_scale3_gate = self.mmtm(
-                *wsi_feat_scale_gloabl_list)
+            wsi_feat1_gloabl, wsi_feat_scale1_gate, wsi_feat2_gloabl, wsi_feat_scale2_gate, wsi_feat3_gloabl, \
+                wsi_feat_scale3_gate = self.mmtm(*wsi_feat_scale_gloabl_list)
 
             """instance selection on 3 scales"""
             wsi_feat_agg_list = []
@@ -802,7 +803,6 @@ class MILFusion(nn.Module):
                     wsi_feat_scale_gloabl_list,
                     [self.instance_gate1, self.instance_gate2, self.instance_gate3]
             ):
-                #
                 bs_at_scale = wsi_feat_at_scale.shape[0]
                 wsi_feat_at_scale = wsi_feat_at_scale * wsi_feat_gate_at_scale
                 wsi_global_rep_repeat = wsi_feat_gate_at_scale.detach().repeat(bs_at_scale, 1)
@@ -816,7 +816,6 @@ class MILFusion(nn.Module):
                 # instance aggregate
                 wsi_feat_agg = torch.mm(instance_attention_weight, wsi_feat_at_scale)
                 wsi_feat_agg_list.append(wsi_feat_agg)
-
 
             final_feat = torch.cat(
                 [*wsi_feat_agg_list, wsi_feat1_gloabl, wsi_feat2_gloabl, wsi_feat3_gloabl], dim=1)
@@ -862,7 +861,7 @@ class MILFusion(nn.Module):
             for ft_conv, wsi_feat in zip(
                     [self.feature_fine_tuning, self.feature_fine_tuning2, self.feature_fine_tuning3],
                     [wsi_feat_scale1, wsi_feat_scale2, wsi_feat_scale3],
-                ):
+            ):
                 wsi_ft_feat_list.append(ft_conv(wsi_feat))
 
             if self.use_k_agg:
@@ -885,18 +884,18 @@ class MILFusion(nn.Module):
                 for feat in wsi_ft_feat_list:
                     wsi_feat_scale_gloabl_list.append(torch.mean(feat, dim=0, keepdim=True))
 
-
             """mmtm"""
-            tab_feat_mmtm, wsi_feat1_gloabl, wsi_feat_scale1_gate, wsi_feat2_gloabl, wsi_feat_scale2_gate, wsi_feat3_gloabl, wsi_feat_scale3_gate = self.mmtm(tab_feat, *wsi_feat_scale_gloabl_list)
+            tab_feat_mmtm, wsi_feat1_gloabl, wsi_feat_scale1_gate, wsi_feat2_gloabl, wsi_feat_scale2_gate, \
+                wsi_feat3_gloabl, wsi_feat_scale3_gate = self.mmtm(tab_feat, *wsi_feat_scale_gloabl_list)
 
             """instance selection of 3 scales"""
             wsi_feat_agg_list = []
             for wsi_feat_at_scale, wsi_feat_gate_at_scale, wsi_global_rep, instance_gate in zip(
-                        wsi_ft_feat_list,
-                        [wsi_feat_scale1_gate, wsi_feat_scale2_gate, wsi_feat_scale3_gate],
-                        wsi_feat_scale_gloabl_list,
-                        [self.instance_gate1, self.instance_gate2, self.instance_gate3]
-                ):
+                    wsi_ft_feat_list,
+                    [wsi_feat_scale1_gate, wsi_feat_scale2_gate, wsi_feat_scale3_gate],
+                    wsi_feat_scale_gloabl_list,
+                    [self.instance_gate1, self.instance_gate2, self.instance_gate3]
+            ):
                 #
                 bs_at_scale = wsi_feat_at_scale.shape[0]
                 wsi_feat_at_scale = wsi_feat_at_scale * wsi_feat_gate_at_scale
@@ -909,7 +908,6 @@ class MILFusion(nn.Module):
 
                 instance_attention_weight = torch.softmax(instance_attention_weight, dim=1)
 
-
                 # instance aggregate
                 wsi_feat_agg = torch.mm(instance_attention_weight, wsi_feat_at_scale)
 
@@ -919,16 +917,15 @@ class MILFusion(nn.Module):
             """tab feat ft"""
             tab_feat_ft = self.table_feature_ft(tab_feat_mmtm)
 
-            final_feat = torch.cat([tab_feat_ft, *wsi_feat_agg_list, wsi_feat1_gloabl, wsi_feat2_gloabl, wsi_feat3_gloabl], dim=1)
+            final_feat = torch.cat(
+                [tab_feat_ft, *wsi_feat_agg_list, wsi_feat1_gloabl, wsi_feat2_gloabl, wsi_feat3_gloabl], dim=1)
 
             out = self.classifier(final_feat)
-
 
             pass
         y = y.view(-1, 1).float()
         loss = F.binary_cross_entropy_with_logits(out, y) + \
-               tab_loss_weight * F.binary_cross_entropy_with_logits(tab_logit, y) - \
-               self.lambda_sparse * M_loss
+            tab_loss_weight * F.binary_cross_entropy_with_logits(tab_logit, y) - self.lambda_sparse * M_loss
 
         return out, loss, attention_weight_out_list
 
@@ -944,7 +941,7 @@ class MILFusion(nn.Module):
                 'lr': base_lr
             })
 
-        cls_learning_rate_rate=100
+        cls_learning_rate_rate = 100
         if self.classifier is not None:
             classifier_params = []
             for param in self.classifier.parameters():
@@ -953,7 +950,6 @@ class MILFusion(nn.Module):
                 'params': classifier_params,
                 'lr': base_lr / cls_learning_rate_rate,
             })
-
 
         tab_learning_rate_rate = 100
         if self.table_feature_ft is not None:
@@ -993,13 +989,13 @@ class MILFusion(nn.Module):
         return ret
 
 
-
 """
 M3D part models
 
 """
 # textnet inner concat number
-neure_num =  [23, 32, 32, 32, 32, 32, 16, 1]
+neure_num = [23, 32, 32, 32, 32, 32, 16, 1]
+
 
 class TextNet(nn.Module):
     def __init__(self, neure_num):
@@ -1036,7 +1032,6 @@ def make_layers(cfg):
             layers += [nn.Linear(input_dim, output_dim), nn.ReLU(inplace=True)]
         input_dim = output_dim
     return nn.Sequential(*layers)
-
 
 
 class M3D(nn.Module):
@@ -1109,20 +1104,20 @@ class M3D(nn.Module):
 
         text_predict = self.text_net(tab_data)
 
-        bag_predict = torch.max(wsi_instance_predict1) + torch.max(wsi_instance_predict2) \
-                      + torch.max(wsi_instance_predict3) + torch.max(text_predict)
+        bag_predict = torch.max(wsi_instance_predict1) + torch.max(wsi_instance_predict2) + \
+            torch.max(wsi_instance_predict3) + torch.max(text_predict)
 
-        for_debug_predict = (torch.mean(wsi_instance_predict1) + torch.mean(wsi_instance_predict2) + torch.mean(wsi_instance_predict3)) / 3.
+        for_debug_predict = (torch.mean(wsi_instance_predict1) + torch.mean(wsi_instance_predict2) + torch.mean(
+            wsi_instance_predict3)) / 3.
 
         bag_predict = bag_predict / 4.
         bag_predict = bag_predict.view(-1, 1)
-        debug_loss =  F.binary_cross_entropy(for_debug_predict.view(-1, 1), y)
+        debug_loss = F.binary_cross_entropy(for_debug_predict.view(-1, 1), y)
         loss = F.binary_cross_entropy(bag_predict, y) + 1e-10 * debug_loss
         return bag_predict, loss
 
     def get_params(self, base_lr):
         ret = []
-
 
         misc_params = []
         for part in [self.feature_fine_tuning, self.feature_fine_tuning2, self.feature_fine_tuning3,
@@ -1146,9 +1141,6 @@ class M3D(nn.Module):
         })
 
         return ret
-
-
-
 
 
 class MILFusionAppend(nn.Module):
@@ -1236,7 +1228,6 @@ class MILFusionAppend(nn.Module):
                     )
                 )
 
-
         """modal fusion"""
         self.wsi_select_gate = None
 
@@ -1288,7 +1279,7 @@ class MILFusionAppend(nn.Module):
         else:
             self.instance_gate1 = InstanceAttentionGate(img_feat_input_dim)
 
-        if (self.num_modal == 4 or self.num_modal == 3)and self.fusion_method == 'mmtm':
+        if (self.num_modal == 4 or self.num_modal == 3) and self.fusion_method == 'mmtm':
             self.instance_gate2 = InstanceAttentionGate(img_feat_input_dim)
             self.instance_gate3 = InstanceAttentionGate(img_feat_input_dim)
         else:
@@ -1371,10 +1362,8 @@ class MILFusionAppend(nn.Module):
         if len(wsi_feat_scale1.size()) == 3:
             # 1 #instance #feat
             wsi_feat_scale1 = wsi_feat_scale1.squeeze(0)
-        scale1_bs = wsi_feat_scale1.shape[0]
 
         # get the instance weight during the first forward
-        #
         """
         Fuse 4 modalities
         """
@@ -1410,7 +1399,7 @@ class MILFusionAppend(nn.Module):
             for ft_conv, wsi_feat in zip(
                     [self.feature_fine_tuning, self.feature_fine_tuning2, self.feature_fine_tuning3],
                     [wsi_feat_scale1, wsi_feat_scale2, wsi_feat_scale3],
-                ):
+            ):
                 wsi_ft_feat_list.append(ft_conv(wsi_feat))
 
             if self.use_k_agg:
@@ -1433,18 +1422,18 @@ class MILFusionAppend(nn.Module):
                 for feat in wsi_ft_feat_list:
                     wsi_feat_scale_gloabl_list.append(torch.mean(feat, dim=0, keepdim=True))
 
-
             """mmtm"""
-            tab_feat_mmtm, wsi_feat1_gloabl, wsi_feat_scale1_gate, wsi_feat2_gloabl, wsi_feat_scale2_gate, wsi_feat3_gloabl, wsi_feat_scale3_gate = self.mmtm(tab_feat, *wsi_feat_scale_gloabl_list)
+            tab_feat_mmtm, wsi_feat1_gloabl, wsi_feat_scale1_gate, wsi_feat2_gloabl, wsi_feat_scale2_gate, \
+                wsi_feat3_gloabl, wsi_feat_scale3_gate = self.mmtm(tab_feat, *wsi_feat_scale_gloabl_list)
 
             """instance selection of 3 scales"""
             wsi_feat_agg_list = []
             for wsi_feat_at_scale, wsi_feat_gate_at_scale, wsi_global_rep, instance_gate in zip(
-                        wsi_ft_feat_list,
-                        [wsi_feat_scale1_gate, wsi_feat_scale2_gate, wsi_feat_scale3_gate],
-                        wsi_feat_scale_gloabl_list,
-                        [self.instance_gate1, self.instance_gate2, self.instance_gate3]
-                ):
+                    wsi_ft_feat_list,
+                    [wsi_feat_scale1_gate, wsi_feat_scale2_gate, wsi_feat_scale3_gate],
+                    wsi_feat_scale_gloabl_list,
+                    [self.instance_gate1, self.instance_gate2, self.instance_gate3]
+            ):
                 #
                 bs_at_scale = wsi_feat_at_scale.shape[0]
                 wsi_feat_at_scale = wsi_feat_at_scale * wsi_feat_gate_at_scale
@@ -1456,7 +1445,6 @@ class MILFusionAppend(nn.Module):
                 instance_attention_weight = torch.transpose(instance_attention_weight, 1, 0)
 
                 instance_attention_weight = torch.softmax(instance_attention_weight, dim=1)
-
 
                 # instance aggregate
                 wsi_feat_agg = torch.mm(instance_attention_weight, wsi_feat_at_scale)
@@ -1511,8 +1499,8 @@ class MILFusionAppend(nn.Module):
 
         attention_weight_out_list = []
         """mmtm"""
-        tab_feat_mmtm, wsi_feat1_gloabl, wsi_feat_scale1_gate, wsi_feat2_gloabl, wsi_feat_scale2_gate, wsi_feat3_gloabl, wsi_feat_scale3_gate = self.mmtm(
-            tab_feat, *wsi_feat_scale_gloabl_list)
+        tab_feat_mmtm, wsi_feat1_gloabl, wsi_feat_scale1_gate, wsi_feat2_gloabl, wsi_feat_scale2_gate, \
+            wsi_feat3_gloabl, wsi_feat_scale3_gate = self.mmtm(tab_feat, *wsi_feat_scale_gloabl_list)
 
         """instance selection of 3 scales"""
         wsi_feat_agg_list = []
@@ -1543,16 +1531,15 @@ class MILFusionAppend(nn.Module):
         """tab feat ft"""
         tab_feat_ft = self.table_feature_ft(tab_feat_mmtm)
 
-        final_feat = torch.cat([tab_feat_ft, *wsi_feat_agg_list, wsi_feat1_gloabl, wsi_feat2_gloabl, wsi_feat3_gloabl], dim=1)
+        final_feat = torch.cat([tab_feat_ft, *wsi_feat_agg_list, wsi_feat1_gloabl, wsi_feat2_gloabl, wsi_feat3_gloabl],
+                               dim=1)
 
         out = self.classifier(final_feat)
-
 
         pass
         y = y.view(-1, 1).float()
         loss = F.binary_cross_entropy_with_logits(out, y) + \
-               tab_loss_weight * F.binary_cross_entropy_with_logits(tab_logit, y) - \
-               self.lambda_sparse * M_loss
+            tab_loss_weight * F.binary_cross_entropy_with_logits(tab_logit, y) - self.lambda_sparse * M_loss
 
         return out, loss, attention_weight_out_list
 
@@ -1568,7 +1555,7 @@ class MILFusionAppend(nn.Module):
                 'lr': base_lr
             })
 
-        cls_learning_rate_rate=100
+        cls_learning_rate_rate = 100
         if self.classifier is not None:
             classifier_params = []
             for param in self.classifier.parameters():
@@ -1577,7 +1564,6 @@ class MILFusionAppend(nn.Module):
                 'params': classifier_params,
                 'lr': base_lr / cls_learning_rate_rate,
             })
-
 
         tab_learning_rate_rate = 100
         if self.table_feature_ft is not None:
@@ -1617,7 +1603,6 @@ class MILFusionAppend(nn.Module):
         return ret
 
 
-
 class InstanceAttentionGateAdd(nn.Module):
     def __init__(self, feat_dim):
         super(InstanceAttentionGateAdd, self).__init__()
@@ -1628,7 +1613,6 @@ class InstanceAttentionGateAdd(nn.Module):
         )
 
     def forward(self, instance_feature, global_feature):
-
         feat = instance_feature + global_feature
         attention = self.trans(feat)
         return attention
@@ -1719,7 +1703,6 @@ class MILFusionAdd(nn.Module):
                     )
                 )
 
-
         """modal fusion"""
         self.wsi_select_gate = None
         # define modal fusion related output feature dimension and fusion module
@@ -1771,7 +1754,7 @@ class MILFusionAdd(nn.Module):
         else:
             self.instance_gate1 = InstanceAttentionGateAdd(img_feat_input_dim)
 
-        if (self.num_modal == 4 or self.num_modal == 3)and self.fusion_method == 'mmtm':
+        if (self.num_modal == 4 or self.num_modal == 3) and self.fusion_method == 'mmtm':
             self.instance_gate2 = InstanceAttentionGateAdd(img_feat_input_dim)
             self.instance_gate3 = InstanceAttentionGateAdd(img_feat_input_dim)
         else:
@@ -1855,7 +1838,6 @@ class MILFusionAdd(nn.Module):
         if len(wsi_feat_scale1.size()) == 3:
             # 1 #instance #feat
             wsi_feat_scale1 = wsi_feat_scale1.squeeze(0)
-        scale1_bs = wsi_feat_scale1.shape[0]
 
         if True:
             """
@@ -1892,7 +1874,7 @@ class MILFusionAdd(nn.Module):
             for ft_conv, wsi_feat in zip(
                     [self.feature_fine_tuning, self.feature_fine_tuning2, self.feature_fine_tuning3],
                     [wsi_feat_scale1, wsi_feat_scale2, wsi_feat_scale3],
-                ):
+            ):
                 wsi_ft_feat_list.append(ft_conv(wsi_feat))
 
             if self.use_k_agg:
@@ -1916,18 +1898,18 @@ class MILFusionAdd(nn.Module):
                 for feat in wsi_ft_feat_list:
                     wsi_feat_scale_gloabl_list.append(torch.mean(feat, dim=0, keepdim=True))
 
-
             """mmtm"""
-            tab_feat_mmtm, wsi_feat1_gloabl, wsi_feat_scale1_gate, wsi_feat2_gloabl, wsi_feat_scale2_gate, wsi_feat3_gloabl, wsi_feat_scale3_gate = self.mmtm(tab_feat, *wsi_feat_scale_gloabl_list)
+            tab_feat_mmtm, wsi_feat1_gloabl, wsi_feat_scale1_gate, wsi_feat2_gloabl, wsi_feat_scale2_gate, \
+                wsi_feat3_gloabl, wsi_feat_scale3_gate = self.mmtm(tab_feat, *wsi_feat_scale_gloabl_list)
 
             """instance selection of 3 scales"""
             wsi_feat_agg_list = []
             for wsi_feat_at_scale, wsi_feat_gate_at_scale, wsi_global_rep, instance_gate in zip(
-                        wsi_ft_feat_list,
-                        [wsi_feat_scale1_gate, wsi_feat_scale2_gate, wsi_feat_scale3_gate],
-                        wsi_feat_scale_gloabl_list,
-                        [self.instance_gate1, self.instance_gate2, self.instance_gate3]
-                ):
+                    wsi_ft_feat_list,
+                    [wsi_feat_scale1_gate, wsi_feat_scale2_gate, wsi_feat_scale3_gate],
+                    wsi_feat_scale_gloabl_list,
+                    [self.instance_gate1, self.instance_gate2, self.instance_gate3]
+            ):
                 #
                 bs_at_scale = wsi_feat_at_scale.shape[0]
                 wsi_feat_at_scale = wsi_feat_at_scale * wsi_feat_gate_at_scale
@@ -1940,7 +1922,6 @@ class MILFusionAdd(nn.Module):
 
                 instance_attention_weight = torch.softmax(instance_attention_weight, dim=1)
 
-
                 # instance aggregate
                 wsi_feat_agg = torch.mm(instance_attention_weight, wsi_feat_at_scale)
                 attention_weight_out_list.append(instance_attention_weight.detach().clone())
@@ -1949,16 +1930,15 @@ class MILFusionAdd(nn.Module):
             """tab feat ft"""
             tab_feat_ft = self.table_feature_ft(tab_feat_mmtm)
 
-            final_feat = torch.cat([tab_feat_ft, *wsi_feat_agg_list, wsi_feat1_gloabl, wsi_feat2_gloabl, wsi_feat3_gloabl], dim=1)
+            final_feat = torch.cat(
+                [tab_feat_ft, *wsi_feat_agg_list, wsi_feat1_gloabl, wsi_feat2_gloabl, wsi_feat3_gloabl], dim=1)
 
             out = self.classifier(final_feat)
-
 
             pass
         y = y.view(-1, 1).float()
         loss = F.binary_cross_entropy_with_logits(out, y) + \
-               tab_loss_weight * F.binary_cross_entropy_with_logits(tab_logit, y) - \
-               self.lambda_sparse * M_loss
+            tab_loss_weight * F.binary_cross_entropy_with_logits(tab_logit, y) - self.lambda_sparse * M_loss
 
         return out, loss, attention_weight_out_list
 
@@ -1974,7 +1954,7 @@ class MILFusionAdd(nn.Module):
                 'lr': base_lr
             })
 
-        cls_learning_rate_rate=100
+        cls_learning_rate_rate = 100
         if self.classifier is not None:
             classifier_params = []
             for param in self.classifier.parameters():
@@ -2020,11 +2000,3 @@ class MILFusionAdd(nn.Module):
         })
 
         return ret
-
-
-
-
-
-
-
-

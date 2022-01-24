@@ -55,7 +55,6 @@ class FeatBagDataset(data_utils.Dataset):
         label = self.targets[idx]
 
         bag_fp = osp.join(self.bag_feat_aug_root, f'{c_pid}.pkl')
-        pid_dir = osp.join(self.bag_feat_aug_root, c_pid)
 
         with open(bag_fp, 'rb') as infile:
             bag_feat_list_obj = pickle.load(infile)
@@ -188,7 +187,6 @@ class FeatBagTabFeatDataset(data_utils.Dataset):
         bag_feat = np.vstack(bag_feat)
 
         if self.is_train and bag_feat.shape[0] <= 1:
-
             rand_choose_idx = np.random.randint(0, len(self))
             return self[rand_choose_idx]
 
@@ -217,11 +215,11 @@ class FeatBagTabFeatDataset(data_utils.Dataset):
         }
 
 
-
 class ModalFusionDataset(data_utils.Dataset):
     """"
     Load multi-modal data
     """
+
     def __init__(self,
                  cli_feat: pd.DataFrame,
                  cli_data: pd.DataFrame,
@@ -316,8 +314,6 @@ class ModalFusionDataset(data_utils.Dataset):
         del bag_feat_list_obj
         bag_feat = np.vstack(bag_feat)
 
-
-
         if self.is_train:
             if np.random.rand() < 0.5:
                 num_of_drop_columns = np.random.randint(0, 100)
@@ -347,9 +343,9 @@ class ModalFusionDataset(data_utils.Dataset):
                 else:
                     bag_feat = np.zeros((1, 1280))
                     feat_name = []
-                k = f'wsi_feat_scale{idx+1}'
+                k = f'wsi_feat_scale{idx + 1}'
                 ret[k] = torch.from_numpy(bag_feat).float()
-                ret[k+'_feat_name'] = feat_name
+                ret[k + '_feat_name'] = feat_name
         else:
             if self.select_scale == 1:
                 feat_root = self.scale1_feat_root
@@ -393,9 +389,11 @@ def mixup_data(x, alpha=1.0, use_cuda=False):
     mixed_x = lam * x + (1 - lam) * x[index, :]
     return mixed_x
 
+
 class EMPOBJ:
     def __init__(self):
         self.local_rank = 0
+
 
 if __name__ == '__main__':
     import pandas as pd
@@ -404,6 +402,7 @@ if __name__ == '__main__':
     bag_feat_root = "path/to/your/bag"
     cfg = EMPOBJ()
     from rich.progress import track
+
     cfg.local_rank = 0
     ds = ModalFusionDataset(
         cli_feat=df,

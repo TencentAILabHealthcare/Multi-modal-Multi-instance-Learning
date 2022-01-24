@@ -42,12 +42,10 @@ def merge_wsi_feat(wsi_feat_dir) -> None:
 
     """
 
-
     files = glob(osp.join(wsi_feat_dir, '*.pkl'))
 
     save_obj = []
     for fp in files:
-        #
         try:
             with open(fp, 'rb') as infile:
                 obj = pickle.load(infile)
